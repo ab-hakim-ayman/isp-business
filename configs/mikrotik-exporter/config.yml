@@ -1,0 +1,24 @@
+# ==============================================================================
+# MikroTik Exporter Configuration for ISP Core BNG Telemetry
+# Scrapes MikroTik RouterOS API (Port 8728) for BGP, PPPoE, CGNAT & Interfaces
+# ==============================================================================
+devices:
+  - name: isp_core_bng01
+    address: 10.10.1.1
+    port: 8728
+    user: prometheus
+    password: IspPromMonSecure2026!
+
+features:
+  bgp: true
+  dhcp: true
+  dhcp_lease: true
+  dhcp_cookies: false
+  routes: true
+  interface: true
+  resource: true
+  wireguard: false
+  firmware: true
+  conntrack: true
+  optic: true
+  pool: true

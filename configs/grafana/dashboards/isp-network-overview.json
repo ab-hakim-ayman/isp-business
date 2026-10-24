@@ -1,0 +1,245 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "⚡ ISP Core BNG System Health & Resource Telemetry",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus-ISP" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 85 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Core BNG CPU Load",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "mikrotik_cpu_load{device=\"isp_core_bng01\"}",
+          "legendFormat": "CPU Load (%)"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus-ISP" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 1073741824 },
+              { "color": "green", "value": 4294967296 }
+            ]
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "id": 2,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Free Memory (RAM)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "mikrotik_free_memory{device=\"isp_core_bng01\"}",
+          "legendFormat": "Free RAM"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus-ISP" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "id": 3,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "System Uptime",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "mikrotik_uptime{device=\"isp_core_bng01\"}",
+          "legendFormat": "Uptime"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus-ISP" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 200000 },
+              { "color": "red", "value": 450000 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "id": 4,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Active CGNAT Connections",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "mikrotik_active_connections{device=\"isp_core_bng01\"}",
+          "legendFormat": "Active Conntrack"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "id": 200,
+      "title": "🌐 BGP Transit & BDIX Domestic Peering Traffic (10G)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus-ISP" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 15 },
+          "unit": "bps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "id": 5,
+      "title": "Primary IIG Global Transit Bandwidth (sfp-sfpplus1)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(mikrotik_interface_receive_bytes{interface=\"sfp-sfpplus1\"}[30s]) * 8",
+          "legendFormat": "IIG Download (RX)"
+        },
+        {
+          "expr": "rate(mikrotik_interface_transmit_bytes{interface=\"sfp-sfpplus1\"}[30s]) * 8",
+          "legendFormat": "IIG Upload (TX)"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus-ISP" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 15 },
+          "unit": "bps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "id": 6,
+      "title": "BDIX Domestic Peering Bandwidth (sfp-sfpplus2)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(mikrotik_interface_receive_bytes{interface=\"sfp-sfpplus2\"}[30s]) * 8",
+          "legendFormat": "BDIX Download (RX)"
+        },
+        {
+          "expr": "rate(mikrotik_interface_transmit_bytes{interface=\"sfp-sfpplus2\"}[30s]) * 8",
+          "legendFormat": "BDIX Upload (TX)"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "id": 300,
+      "title": "🏢 FTTH Broadband (VLAN 100) & Campus Hotspot (VLAN 200)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus-ISP" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 15 },
+          "unit": "bps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 7,
+      "title": "FTTH Subscriber Aggregated Traffic (vlan100-pon-access)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(mikrotik_interface_receive_bytes{interface=\"vlan100-pon-access\"}[30s]) * 8",
+          "legendFormat": "Broadband Download (RX)"
+        },
+        {
+          "expr": "rate(mikrotik_interface_transmit_bytes{interface=\"vlan100-pon-access\"}[30s]) * 8",
+          "legendFormat": "Broadband Upload (TX)"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus-ISP" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "fillOpacity": 15 },
+          "unit": "bps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 8,
+      "title": "Campus Wi-Fi Hotspot Traffic (vlan200-hotspot)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(mikrotik_interface_receive_bytes{interface=\"vlan200-hotspot\"}[30s]) * 8",
+          "legendFormat": "Hotspot Download (RX)"
+        },
+        {
+          "expr": "rate(mikrotik_interface_transmit_bytes{interface=\"vlan200-hotspot\"}[30s]) * 8",
+          "legendFormat": "Hotspot Upload (TX)"
+        }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["isp", "mikrotik", "bgp", "pppoe", "cgnat", "ftth"],
+  "time": { "from": "now-15m", "to": "now" },
+  "timezone": "browser",
+  "title": "ISP Business Core Network Overview",
+  "uid": "isp-network-overview",
+  "version": 1
+}

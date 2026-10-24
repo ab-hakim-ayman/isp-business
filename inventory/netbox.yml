@@ -1,0 +1,33 @@
+# ==============================================================================
+# NetBox Dynamic Inventory Plugin for ISP Business Network
+# ==============================================================================
+---
+plugin: netbox.netbox.nb_inventory
+api_endpoint: http://localhost:8000
+token: 0123456789abcdef0123456789abcdef01234567
+validate_certs: false
+config_context: true
+
+device_query_filters:
+  - role: core-bng-router
+  - role: ftth-olt
+
+group_by:
+  - sites
+  - role
+
+compose:
+  ansible_network_os: "'community.routeros.routeros' if 'bng' in (name | string) else 'community.general.terminal'"
+  hostname: name | string
+  site_name: site.name | string
+  site_prefix: config_context.site_prefix | default('')
+  bgp: config_context.bgp | default({})
+  cgnat: config_context.cgnat | default({})
+  pppoe_server: config_context.pppoe_server | default({})
+  hotspot: config_context.hotspot | default({})
+  pon_ports: config_context.pon_ports | default([])
+
+groups:
+  isp_devices: "true"
+  core_routers: "'bng' in (name | string)"
+  olts: "'olt' in (name | string)"

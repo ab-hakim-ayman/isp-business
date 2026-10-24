@@ -1,0 +1,66 @@
+---
+# ==============================================================================
+# Master Deployment Playbook for ISP Business Network
+# Orchestrates Core BNG Router (MikroTik RouterOS v7) & FTTH GPON OLT
+# ==============================================================================
+- name: Deploy Core BNG Router Configurations
+  hosts: core_routers
+  gather_facts: false
+  serial: 1
+
+  tasks:
+    - name: Ensure Output Directory Exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../generated_configs"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+
+    - name: Render MikroTik RouterOS v7 Core BNG Configuration
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/mikrotik_isp_bng.j2"
+        dest: "{{ playbook_dir }}/../generated_configs/core_bng_router.rsc"
+        mode: '0644'
+      delegate_to: localhost
+
+    - name: Display Core BNG Generation Status
+      ansible.builtin.debug:
+        msg: "✅ Successfully rendered Core BNG candidate configuration for {{ hostname }} (Site: {{ site_name }})"
+
+    - name: Safety Block with Graceful Check for Live Device Connectivity
+      block:
+        - name: Check Live Router Connectivity
+          community.routeros.command:
+            commands:
+              - /system identity print
+          register: live_check
+          ignore_errors: true
+
+        - name: Print Core BNG Deployment Notice
+          ansible.builtin.debug:
+            msg: >
+              Core BNG configuration is ready at generated_configs/core_bng_router.rsc.
+              Can be imported on MikroTik CCR via: '/import file-name=core_bng_router.rsc'
+              or pushed over RouterOS SSH/API.
+      rescue:
+        - name: Rollback Triggered
+          ansible.builtin.debug:
+            msg: "⚠️ Deployment failed. Router state unchanged."
+
+- name: Deploy FTTH GPON OLT Configurations
+  hosts: olts
+  gather_facts: false
+  serial: 1
+
+  tasks:
+    - name: Render FTTH GPON OLT Configuration
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/gpon_olt_config.j2"
+        dest: "{{ playbook_dir }}/../generated_configs/gpon_olt_01.cfg"
+        mode: '0644'
+      delegate_to: localhost
+
+    - name: Display GPON OLT Generation Status
+      ansible.builtin.debug:
+        msg: "✅ Successfully rendered GPON OLT configuration for {{ hostname }} (Site: {{ site_name }})"

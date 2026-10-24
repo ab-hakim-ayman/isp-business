@@ -1,0 +1,30 @@
+---
+# ==============================================================================
+# Global ISP Network Services & Configurations
+# ==============================================================================
+isp_name: "CloudApex Telecom"
+isp_asn: 139999
+isp_public_prefix: "103.200.8.0/22"
+timezone: "Asia/Dhaka"
+
+# DNS & NTP Servers
+dns_servers:
+  - "1.1.1.1"
+  - "8.8.8.8"
+ntp_servers:
+  - "time.google.com"
+  - "time.cloudflare.com"
+
+# CGNAT RFC 6598 Shared Address Space for Subscribers
+cgnat_prefix: "100.64.0.0/18"
+
+# RADIUS AAA & Billing Integration
+radius_enabled: true
+radius_server: "10.10.1.50"
+radius_secret: "RadiusSecureIspKey2026!"
+
+# Observability & Monitoring Settings
+monitoring_user: "prometheus"
+monitoring_password: "IspPromMonSecure2026!"
+snmp_community: "isp-monitor"
+snmp_contact: "noc@cloudapex.net"

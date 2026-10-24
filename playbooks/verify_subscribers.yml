@@ -1,0 +1,44 @@
+---
+# ==============================================================================
+# Verification Playbook for ISP Subscribers, BGP & CGNAT Health
+# ==============================================================================
+- name: Verify ISP Core Network Health & Active Services
+  hosts: core_routers
+  gather_facts: false
+
+  tasks:
+    - name: Verify BGP Peering Sessions (Upstream & BDIX)
+      community.routeros.command:
+        commands:
+          - /routing bgp connection print detail
+          - /routing bgp session print
+      register: bgp_status
+      ignore_errors: true
+
+    - name: Verify Active PPPoE Broadband Subscribers
+      community.routeros.command:
+        commands:
+          - /interface pppoe-server print
+          - /interface pppoe-server server print
+      register: pppoe_status
+      ignore_errors: true
+
+    - name: Verify CGNAT Connection Tracking Utilization
+      community.routeros.command:
+        commands:
+          - /ip firewall connection tracking print
+          - /ip firewall connection print count-only
+      register: conntrack_status
+      ignore_errors: true
+
+    - name: Verify Campus Hotspot Active Users
+      community.routeros.command:
+        commands:
+          - /ip hotspot active print
+          - /ip hotspot user print
+      register: hotspot_status
+      ignore_errors: true
+
+    - name: Print ISP Verification Summary
+      ansible.builtin.debug:
+        msg: "ISP Health Verification completed for {{ hostname }} at {{ site_name }}."

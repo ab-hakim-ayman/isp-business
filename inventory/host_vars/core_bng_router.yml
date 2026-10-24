@@ -1,0 +1,102 @@
+---
+# ==============================================================================
+# ISP Core BNG / BRAS Router Data Model (MikroTik RouterOS v7)
+# ==============================================================================
+hostname: "isp-core-bng01"
+site_name: "ISP-NOC-Dhaka"
+device_role: "core-bng-router"
+management_ip: "10.10.1.1/24"
+management_interface: "ether1"
+
+# ------------------------------------------------------------------------------
+# 1. BGP Upstream & BDIX Peering
+# ------------------------------------------------------------------------------
+bgp:
+  local_asn: 139999
+  router_id: "103.200.8.1"
+  announced_prefixes:
+    - "103.200.8.0/22"
+  peers:
+    - name: "IIG-Summit-Transit"
+      remote_asn: 64512
+      peer_ip: "203.0.113.1"
+      local_ip: "203.0.113.2/30"
+      interface: "sfp-sfpplus1"
+      description: "10G Primary Global Transit via IIG"
+      local_preference: 100
+      role: "upstream"
+    - name: "BDIX-Domestic-Peering"
+      remote_asn: 64513
+      peer_ip: "198.51.100.1"
+      local_ip: "198.51.100.2/30"
+      interface: "sfp-sfpplus2"
+      description: "10G Domestic Peering via BDIX"
+      local_preference: 200
+      role: "ixp"
+
+# ------------------------------------------------------------------------------
+# 2. CGNAT (Carrier-Grade NAT RFC 6598)
+# ------------------------------------------------------------------------------
+cgnat:
+  subscriber_subnet: "100.64.0.0/18"
+  gateway_ip: "100.64.0.1"
+  public_pool_range: "103.200.8.10-103.200.8.30"
+  port_range: "1024-65535"
+
+# ------------------------------------------------------------------------------
+# 3. FTTH PPPoE Broadband Server & Subscriber Packages
+# ------------------------------------------------------------------------------
+pppoe_server:
+  enabled: true
+  service_name: "isp-broadband-pppoe"
+  interface: "vlan100-pon-access"
+  vlan_id: 100
+  mtu: 1480
+  mru: 1480
+  address_pool: "100.64.0.10-100.64.63.250"
+  packages:
+    - name: "Starter-15M"
+      rate_limit: "15M/15M"
+      burst_limit: "40M/40M"
+      burst_threshold: "12M/12M"
+      burst_time: "10s/10s"
+      price_bdt: 500
+    - name: "Standard-30M"
+      rate_limit: "30M/30M"
+      burst_limit: "75M/75M"
+      burst_threshold: "25M/25M"
+      burst_time: "10s/10s"
+      price_bdt: 800
+    - name: "Premium-60M"
+      rate_limit: "60M/60M"
+      burst_limit: "120M/120M"
+      burst_threshold: "50M/50M"
+      burst_time: "10s/10s"
+      price_bdt: 1200
+    - name: "Corporate-100M"
+      rate_limit: "100M/100M"
+      burst_limit: "100M/100M"
+      burst_threshold: "100M/100M"
+      burst_time: "1s/1s"
+      price_bdt: 3000
+
+# ------------------------------------------------------------------------------
+# 4. Campus / Public Wi-Fi Hotspot (Captive Portal)
+# ------------------------------------------------------------------------------
+hotspot:
+  enabled: true
+  interface: "vlan200-hotspot"
+  vlan_id: 200
+  network: "172.16.200.0/23"
+  gateway: "172.16.200.1/23"
+  gateway_ip: "172.16.200.1"
+  dhcp_range: "172.16.200.50-172.16.201.250"
+  trial_uptime_limit: "30m"
+  trial_rate_limit: "5M/5M"
+
+# ------------------------------------------------------------------------------
+# 5. OLT Downlink Trunk Ports
+# ------------------------------------------------------------------------------
+olt_trunk_interfaces:
+  - "sfp-sfpplus3"
+  - "sfp-sfpplus4"

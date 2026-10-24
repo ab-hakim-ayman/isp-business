@@ -1,0 +1,169 @@
+# ==============================================================================
+# MikroTik RouterOS v7 Production Configuration Script
+# ISP Core BNG / BRAS Router Automation Engine
+# Hostname: {{ hostname }} | Site: {{ site_name }} | ASN: AS{{ bgp.local_asn }}
+# ==============================================================================
+
+/system identity set name="{{ hostname }}"
+/system clock set time-zone-name="{{ timezone }}"
+
+# ------------------------------------------------------------------------------
+# 1. Interface Lists
+# ------------------------------------------------------------------------------
+/interface list add name=WAN_UPSTREAM
+/interface list add name=PON_ACCESS
+/interface list add name=CAMPUS_HOTSPOT
+/interface list add name=MANAGEMENT
+
+{% for peer in bgp.peers %}
+/interface list member add interface={{ peer.interface }} list=WAN_UPSTREAM
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# 2. OLT Downlink Bridge & VLAN Setup (vlan-filtering enabled)
+# ------------------------------------------------------------------------------
+/interface bridge add name=bridge-olt-downlink vlan-filtering=yes protocol-mode=rstp
+
+{% for trunk in olt_trunk_interfaces %}
+/interface bridge port add bridge=bridge-olt-downlink interface={{ trunk }}
+{% endfor %}
+
+# VLAN 10: Management
+/interface vlan add interface=bridge-olt-downlink name=vlan10-mgmt vlan-id=10
+/interface list member add interface=vlan10-mgmt list=MANAGEMENT
+/ip address add address={{ management_ip }} interface=vlan10-mgmt comment="Out-of-Band Management IP"
+
+# VLAN 100: FTTH PPPoE PON Access
+/interface vlan add interface=bridge-olt-downlink name={{ pppoe_server.interface }} vlan-id={{ pppoe_server.vlan_id }}
+/interface list member add interface={{ pppoe_server.interface }} list=PON_ACCESS
+
+# VLAN 200: Campus / Public Wi-Fi Hotspot
+/interface vlan add interface=bridge-olt-downlink name={{ hotspot.interface }} vlan-id={{ hotspot.vlan_id }}
+/interface list member add interface={{ hotspot.interface }} list=CAMPUS_HOTSPOT
+
+# Bridge VLAN Trunk / Tagging Table
+/interface bridge vlan add bridge=bridge-olt-downlink tagged={{ (olt_trunk_interfaces + ['bridge-olt-downlink']) | join(',') }} vlan-ids=10,100,200,300 comment="ISP Subscriber & Uplink VLANs"
+
+# ------------------------------------------------------------------------------
+# 3. BGP Upstream & BDIX Peering (RouterOS v7)
+# ------------------------------------------------------------------------------
+# Upstream WAN Interface IP Addresses
+{% for peer in bgp.peers %}
+/ip address add address={{ peer.local_ip }} interface={{ peer.interface }} comment="{{ peer.description }}"
+{% endfor %}
+
+# BGP Template Definition
+/routing bgp template add name=isp-default-template as={{ bgp.local_asn }} router-id={{ bgp.router_id }} client-to-client-reflection=no
+
+# Blackhole Routes for ISP Announced Prefix
+{% for prefix in bgp.announced_prefixes %}
+/ip route add dst-address={{ prefix }} blackhole comment="BGP Announced Block Anchor ({{ prefix }})"
+{% endfor %}
+
+# BGP Peering Connections
+{% for peer in bgp.peers %}
+/routing bgp connection add name="{{ peer.name }}" remote.address={{ peer.peer_ip }} remote.as={{ peer.remote_asn }} local.role=ebgp local.address={{ peer.local_ip.split('/')[0] }} templates=isp-default-template output.network="{{ bgp.announced_prefixes | join(',') }}" routing-table=main comment="{{ peer.description }} (Role: {{ peer.role }})"
+{% endfor %}
+
+# BGP Routing Filters: BDIX Local Preference 200, Transit Local Preference 100
+/routing filter rule add chain=bgp-in-filters rule="if (bgp-communities includes {{ bgp.local_asn }}:100) { set bgp-local-pref 200; accept; } else { set bgp-local-pref 100; accept; }"
+
+# ------------------------------------------------------------------------------
+# 4. CGNAT (Carrier-Grade NAT RFC 6598) & Conntrack Optimization
+# ------------------------------------------------------------------------------
+# CGNAT Public Pool
+/ip pool add name=cgnat-public-pool ranges={{ cgnat.public_pool_range }} comment="Public IP Pool for CGNAT Subscribers"
+
+# Dynamic Deterministic Source NAT
+/ip firewall nat add action=src-nat chain=srcnat src-address={{ cgnat.subscriber_subnet }} to-addresses={{ cgnat.public_pool_range }} out-interface-list=WAN_UPSTREAM comment="CGNAT RFC 6598 Subscribers to Public Pool"
+
+# Conntrack High-Capacity Tuning for ISP Subscriber Scale
+/ip firewall connection tracking set tcp-established-timeout=12h tcp-syn-received-timeout=15s generic-timeout=5m max-entries=524288
+
+# ------------------------------------------------------------------------------
+# 5. FTTH PPPoE Broadband Server, Packages & RADIUS Billing
+# ------------------------------------------------------------------------------
+# Subscriber Address Pool
+/ip pool add name=pool-pppoe-subscribers ranges={{ pppoe_server.address_pool }} comment="PPPoE Subscriber Private IP Pool"
+/ip address add address="{{ cgnat.gateway_ip }}/32" network={{ cgnat.gateway_ip }} interface={{ pppoe_server.interface }} comment="PPPoE Gateway Anchor"
+
+# PPPoE Bandwidth Packages & Rate Limiting Profiles
+{% for pkg in pppoe_server.packages %}
+/ppp profile add name="{{ pkg.name }}" local-address={{ cgnat.gateway_ip }} remote-address=pool-pppoe-subscribers rate-limit="{{ pkg.rate_limit }}" dns-server={{ dns_servers | join(',') }} comment="Package: {{ pkg.name }} ({{ pkg.price_bdt }} BDT)"
+{% endfor %}
+
+# PPPoE Server Service Binding
+/interface pppoe-server server add service-name={{ pppoe_server.service_name }} interface={{ pppoe_server.interface }} default-profile=Standard-30M max-mtu={{ pppoe_server.mtu }} max-mru={{ pppoe_server.mru }} authentication=pap,chap,mschap2 disabled=no
+
+# RADIUS Billing Integration (FreeRADIUS / daloRADIUS)
+{% if radius_enabled %}
+/radius add service=ppp address={{ radius_server }} secret="{{ radius_secret }}" authentication-port=1812 accounting-port=1813 timeout=3s comment="Central ISP Billing RADIUS"
+/radius incoming set accept=yes port=3799
+/ppp aaa set use-radius=yes accounting=yes interim-update=5m
+{% endif %}
+
+# Demo PPPoE Subscriber Accounts
+/ppp secret add name="user_demo_gulshan" password="UserPass2026!" profile="Standard-30M" service=pppoe comment="Demo FTTH Home Broadband User"
+/ppp secret add name="corp_client_banani" password="CorpPass2026!" profile="Corporate-100M" service=pppoe comment="Demo Corporate Leased Line Client"
+
+# ------------------------------------------------------------------------------
+# 6. Campus / Public Wi-Fi Hotspot (Captive Portal)
+# ------------------------------------------------------------------------------
+/ip address add address={{ hotspot.gateway }} interface={{ hotspot.interface }} comment="Campus Hotspot Gateway"
+/ip pool add name=pool-hotspot ranges={{ hotspot.dhcp_range }} comment="Campus Hotspot Pool"
+
+/ip dhcp-server add address-pool=pool-hotspot interface={{ hotspot.interface }} name=dhcp-hotspot lease-time=1h disabled=no
+/ip dhcp-server network add address={{ hotspot.network }} gateway={{ hotspot.gateway_ip }} dns-server={{ dns_servers | join(',') }} comment="Campus Hotspot Network"
+
+/ip hotspot profile add name=hsp-profile hotspot-address={{ hotspot.gateway_ip }} html-directory=hotspot login-by=http-chap,trial trial-uptime-limit={{ hotspot.trial_uptime_limit }} trial-user-profile=trial-profile
+/ip hotspot user profile add name=trial-profile rate-limit="{{ hotspot.trial_rate_limit }}" shared-users=1 comment="Free Trial Profile"
+/ip hotspot add name="campus-hotspot" interface={{ hotspot.interface }} profile=hsp-profile address-pool=pool-hotspot disabled=no
+
+/ip firewall nat add action=masquerade chain=srcnat src-address={{ hotspot.network }} out-interface-list=WAN_UPSTREAM comment="Campus Hotspot Internet Masquerade"
+
+# ------------------------------------------------------------------------------
+# 7. Fair-Share QoS Traffic Engineering (PCQ)
+# ------------------------------------------------------------------------------
+/queue type add name="isp-pcq-down" kind=pcq pcq-classifier=dst-address pcq-rate=0 comment="Dynamic Downlink Shaper"
+/queue type add name="isp-pcq-up" kind=pcq pcq-classifier=src-address pcq-rate=0 comment="Dynamic Uplink Shaper"
+
+# ------------------------------------------------------------------------------
+# 8. Security & Firewall Protection
+# ------------------------------------------------------------------------------
+/ip firewall filter
+add action=accept chain=input connection-state=established,related comment="Accept Established/Related"
+add action=drop chain=input connection-state=invalid comment="Drop Invalid Input"
+add action=accept chain=input protocol=icmp comment="Allow ICMP Diagnostic Ping"
+
+# Allow BGP Peering (TCP 179) from WAN Upstreams
+add action=accept chain=input dst-port=179 protocol=tcp in-interface-list=WAN_UPSTREAM comment="Allow BGP from Upstream"
+
+# Allow PPPoE Discovery (PPPoE & PPPoE-Discovery Protocols)
+add action=accept chain=input protocol=gre comment="Allow GRE"
+
+# Management Access: Only allowed from Management VLAN 10
+add action=accept chain=input in-interface=vlan10-mgmt comment="Allow Full Admin from Management VLAN"
+add action=accept chain=input dst-port=161 protocol=udp in-interface=vlan10-mgmt comment="Allow SNMP Polling"
+add action=accept chain=input dst-port=8728,8729 protocol=tcp in-interface=vlan10-mgmt comment="Allow RouterOS API"
+
+# Drop Unwanted Access to Core Router
+add action=drop chain=input in-interface-list=WAN_UPSTREAM comment="Block Router Services from Public Internet"
+
+# Forward Chain: FastTrack
+add action=fasttrack-connection chain=forward connection-state=established,related hw-offload=yes comment="FastTrack Established/Related"
+add action=accept chain=forward connection-state=established,related comment="Accept Established/Related Forward"
+add action=drop chain=forward connection-state=invalid comment="Drop Invalid Forward"
+
+# ------------------------------------------------------------------------------
+# 9. Observability, SNMP & Prometheus Exporter
+# ------------------------------------------------------------------------------
+/snmp set enabled=yes contact="{{ snmp_contact }}" location="{{ site_name }}"
+/snmp community add name={{ snmp_community }} addresses=0.0.0.0/0 read-access=yes security=none
+
+/user group add name=monitoring policy=read,api,test comment="Read-only monitoring policy"
+/user add name={{ monitoring_user }} group=monitoring password="{{ monitoring_password }}" comment="Prometheus Exporter Scraper"
+/ip service enable api
+
+# ==============================================================================
+# ISP Core BNG Router configuration rendered successfully.
+# ==============================================================================

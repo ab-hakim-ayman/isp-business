@@ -1,0 +1,52 @@
+---
+# ==============================================================================
+# FTTH GPON OLT Automation Data Model
+# ==============================================================================
+hostname: "isp-gpon-olt01"
+site_name: "ISP-POP-Gulshan"
+device_role: "ftth-olt"
+management_ip: "10.10.1.10/24"
+management_vlan: 10
+gateway_ip: "10.10.1.1"
+
+# Uplink to Core BNG Router
+uplink_port: "ge1"
+uplink_vlans:
+  - 10   # Management
+  - 100  # PPPoE FTTH Broadband
+  - 200  # Campus Wi-Fi Hotspot
+  - 300  # Corporate Leased Lines
+
+# PON Optical Ports & Zones
+pon_ports:
+  - port_id: "0/1"
+    name: "Gulshan-Zone-A"
+    max_onus: 128
+    vlan_id: 100
+  - port_id: "0/2"
+    name: "Gulshan-Zone-B"
+    max_onus: 128
+    vlan_id: 100
+  - port_id: "0/3"
+    name: "Commercial-Zone"
+    max_onus: 64
+    vlan_id: 100
+  - port_id: "0/4"
+    name: "Campus-WiFi-Zone"
+    max_onus: 32
+    vlan_id: 200
+
+# Dynamic Bandwidth Allocation (DBA) Profiles
+dba_profiles:
+  - id: 10
+    name: "DBA-Broadband-BestEffort"
+    type: 4
+    max_bandwidth_kbps: 1024000
+  - id: 20
+    name: "DBA-Corporate-CIR"
+    type: 1
+    fix_bandwidth_kbps: 102400
+
+# Automated ONU Discovery & Registration
+auto_find_onu: true
+auto_register_default_vlan: 100

@@ -1,0 +1,88 @@
+# ==============================================================================
+# FTTH GPON OLT Production Configuration Script
+# Generated automatically via NetDevOps ISP Automation Engine
+# Hostname: {{ hostname }} | Site: {{ site_name }}
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. System Identity & Out-of-Band Management
+# ------------------------------------------------------------------------------
+sysname {{ hostname }}
+
+# Management VLAN & IP Interface
+vlan {{ management_vlan }}
+ description Management-Network
+ quit
+
+interface vlanif {{ management_vlan }}
+ ip address {{ management_ip.split('/')[0] }} 255.255.255.0
+ description Out-of-Band OLT Management
+ quit
+
+ip route-static 0.0.0.0 0.0.0.0 {{ gateway_ip }}
+
+# ------------------------------------------------------------------------------
+# 2. Service VLANs (Broadband, Hotspot, Corporate)
+# ------------------------------------------------------------------------------
+{% for vid in uplink_vlans %}
+vlan {{ vid }}
+ description Service-VLAN-{{ vid }}
+ quit
+{% endfor %}
+
+# Uplink 10GE Trunk Port
+interface {{ uplink_port }}
+ port link-type trunk
+ port trunk allow-pass vlan {{ uplink_vlans | join(' ') }}
+ description Uplink-to-Core-BNG-Router
+ quit
+
+# ------------------------------------------------------------------------------
+# 3. Dynamic Bandwidth Allocation (DBA) Profiles
+# ------------------------------------------------------------------------------
+{% for dba in dba_profiles %}
+{% if dba.type == 4 %}
+dba-profile add profile-id {{ dba.id }} profile-name "{{ dba.name }}" type4 max {{ dba.max_bandwidth_kbps }}
+{% elif dba.type == 1 %}
+dba-profile add profile-id {{ dba.id }} profile-name "{{ dba.name }}" type1 fix {{ dba.fix_bandwidth_kbps }}
+{% endif %}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# 4. ONT Line Profile & Service Profile Templates
+# ------------------------------------------------------------------------------
+ont-lineprofile gpon profile-id 10 profile-name "LineProfile-FTTH-Broadband"
+ tcont 1 dba-profile-id 10
+ gem add 1 eth tcont 1
+ gem mapping 1 1 vlan 100
+ commit
+ quit
+
+ont-srvprofile gpon profile-id 10 profile-name "SrvProfile-FTTH-Standard"
+ ont-port eth 4
+ port vlan eth 1 translation 100 user-vlan 100
+ commit
+ quit
+
+# ------------------------------------------------------------------------------
+# 5. PON Optical Ports & Auto-Find Discovery
+# ------------------------------------------------------------------------------
+{% for pon in pon_ports %}
+# --- PON Port {{ pon.port_id }}: {{ pon.name }} (VLAN {{ pon.vlan_id }}) ---
+interface gpon {{ pon.port_id }}
+ description {{ pon.name }}
+ port ont-auto-find enable
+ quit
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# 6. SNMP Telemetry & Optical Monitoring (dBm)
+# ------------------------------------------------------------------------------
+snmp-agent
+snmp-agent community read {{ snmp_community | default('isp-monitor') }}
+snmp-agent sys-info location {{ site_name }}
+snmp-agent sys-info contact {{ snmp_contact | default('noc@cloudapex.net') }}
+
+# ==============================================================================
+# GPON OLT configuration rendered successfully.
+# ==============================================================================
