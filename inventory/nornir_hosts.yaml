@@ -1,0 +1,21 @@
+---
+core_bng_router:
+  hostname: 10.10.1.1
+  groups:
+    - core_routers
+  data:
+    role: CORE_BNG
+    site: ISP-NOC-Dhaka
+    asn: 139999
+    uplinks: 2
+    cgnat_pool: 100.64.0.0/18
+
+gpon_olt_01:
+  hostname: 10.10.1.10
+  groups:
+    - olts
+  data:
+    role: GPON_OLT
+    site: ISP-POP-Gulshan
+    pon_ports: 4
+    access_vlan: 100

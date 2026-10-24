@@ -167,3 +167,30 @@ docker compose -f docker-compose.monitoring.yml up -d
     * 🛡️ **CGNAT Telemetry:** Total active NAT connections and conntrack table utilization
 * **Prometheus Metrics:** [http://localhost:9092](http://localhost:9092)
 * **MikroTik Exporter Metrics:** [http://localhost:9437/metrics](http://localhost:9437/metrics)
+
+---
+
+## 🛡️ Enterprise NetDevOps & Verification Architecture
+
+1. **Pre-Deployment Control Plane & Peering Verification (Batfish)**:
+   - `scripts/verify_batfish.py` formally validates ISP routing policies and safety guardrails:
+     - **Prefix Origination & Leak Prevention**: Formally asserts AS139999 originates `103.200.8.0/22`, and ensures RFC 6598 CGNAT or RFC 1918 prefixes are never leaked to external BGP transit.
+     - **BGP Traffic Engineering Policy**: Verifies BDIX local preference (`200`) > IIG upstream transit (`100`), ensuring low latency and cost-free domestic transit within Bangladesh.
+     - **RFC 6598 Conformance**: Verifies subscriber subnet (`100.64.0.0/18`) adheres strictly to Shared Address Space boundaries and public NAT pool containment.
+     - **Optical Access & BNG Trunk Continuity**: Guarantees PPPoE VLAN 100 continuity across GPON OLT uplinks and active PON zones.
+
+2. **Ultra-Fast Parallel Automation (Nornir & Scrapli)**:
+   - `scripts/nornir_isp_exec.py` executes concurrent Python-native audits across Core BNG routers and GPON OLTs in parallel (`nornir_config.yaml`).
+   - Scales to hundreds of access nodes and OLTs simultaneously without Ansible process serialization.
+
+3. **Model-Driven Telemetry (gNMI & YANG Data Models)**:
+   - `scripts/gnmi_isp_telemetry.py` collects structured streaming telemetry conforming to OpenConfig schemas:
+     - OpenConfig Interfaces: 10G link counters on IIG transit (`sfp-sfpplus1`) and BDIX peering (`sfp-sfpplus2`).
+     - OpenConfig BGP: Streaming neighbor state and full Internet routing table prefix intake (950k routes).
+     - OpenConfig CGNAT: Real-time active translation sessions, NAT pool percentage, and subscriber count.
+     - OpenConfig GPON: Optical power levels (dBm) and registered ONUs across PON ports.
+
+4. **Automated CI/CD Pipeline**:
+   - Pull Request: runs `yamllint`, Pydantic ISP schema validation, Batfish peering verification, and config generator test.
+   - Push to `main`: live ISP deployment via Ansible, followed by Nornir parallel audit and model-driven telemetry collection.
+

@@ -32,6 +32,10 @@ jobs:
         run: |
           python3 scripts/validate_isp_schema.py
 
+      - name: Pre-Deployment Control-Plane & Peering Verification (Batfish)
+        run: |
+          python3 scripts/verify_batfish.py
+
       - name: Test Configuration Generation
         run: |
           python3 scripts/generate_isp_configs.py
@@ -45,7 +49,7 @@ jobs:
           ansible-playbook playbooks/verify_subscribers.yml --syntax-check
 
   deploy-to-isp:
-    name: Live ISP Network Deployment
+    name: Live ISP Network Deployment & Verification
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: self-hosted
     steps:
@@ -64,3 +68,11 @@ jobs:
       - name: Deploy ISP Network via Ansible
         run: |
           ansible-playbook playbooks/deploy_isp.yml
+
+      - name: Post-Deployment Concurrent Audit via Nornir & Scrapli
+        run: |
+          python3 scripts/nornir_isp_exec.py
+
+      - name: Model-Driven Streaming Telemetry (gNMI & YANG)
+        run: |
+          python3 scripts/gnmi_isp_telemetry.py
